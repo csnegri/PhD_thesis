@@ -1,1 +1,4 @@
 Ch.6 - REFacS: Requirements Engineering Factorial Survey framework Summary 
+
+
+Slight note over the R code: there has been an iteration error in modelPaper that appears in some computers and not others. When the error appears, it does not seems to affect substantively the results. However, I still wish to notice this. Also, there might be very slight (third or fourth decimal place) difference in the results between different machines. Please take into consideration this elements 
