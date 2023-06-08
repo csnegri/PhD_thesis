@@ -1,0 +1,148 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+
+# ignoring warnings for the moment (remove MESSAGE option to see them)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(janitor)
+library(plyr)
+
+library(readr) #to read in the .csv file
+library(ordinal) #for the ordinal model
+library(parameters) #for the coefficient plots
+library(ggplot2) #to edit the plot
+library(emmeans) #to obtain estimates of effects on different scales
+library(knitr)
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+
+knitr::opts_chunk$set(echo = TRUE)
+dt <- read_excel("BDmodtestNON2.xlsx", sheet = "Eng-Full-DB",skip = 1) %>% clean_names()
+dt <- dt %>% 
+     gather(category, value, pc_hdp_gov:op_hdp_all) %>% 
+     mutate(
+         category2 = case_when(
+             substr(category, 1, 2) == "pc" ~ "proprietary code",
+             substr(category, 1, 2) == "op" ~ "open source"
+         ),
+         category3 = case_when(
+             substr(category, 4, 6) == "ldp" ~ "low data protection",
+             substr(category, 4, 6) == "bdp" ~ "medium data protection",
+             substr(category, 4, 6) == "hdp" ~ "high data protection"
+         ),
+         category4 = case_when(
+             substr(category, 8, 10) == "gov" ~ "government",
+             substr(category, 8, 10) == "uni" ~ "university",
+             substr(category, 8, 10) == "com" ~ "private organization",
+             substr(category, 8, 10) == "gun" ~ "government+university",
+             substr(category, 8, 10) == "gco" ~ "government+private organzation",
+             substr(category, 8, 10) == "cun" ~ "university+private organization",
+             substr(category, 8, 10) == "all" ~ "government+university+private organization"
+         )
+     )
+dt <- dt %>% drop_na(value)
+ 
+dt$value <- ordered(dt$value)
+dt$category3 <- factor(dt$category3)
+dt$category4 <- factor(dt$category4)
+dt$category2 <- factor(dt$category2)
+
+dt1<-dt[!(dt$dwn=="1"),]
+dt0<-dt[!(dt$dwn=="0"),]
+dtclean <- bind_rows(dt1,dt0)
+
+
+```
+```{r}
+#Creating the models
+
+
+modelPaper <- clmm(value ~ 1+category2 +category3 + category4+ dwn+  (1|id) ,  data=dtclean)
+
+modelPaperMaleFdwn <- clmm(value ~ 1+category2 +category3 + category4+ dwn+ (1|id) ,  data=dtclean[dtclean$gr == "Male",])
+modelPaperFemaleFdwn <- clmm(value ~ 1+category2 +category3 + category4+ dwn+ (1|id) ,  data=dtclean[dtclean$gr == "Female",])
+
+SmodelPaperYesOS <- clmm(value ~ 1+category2 +category3 + category4+ dwn+ (1|id) ,  data=dtclean[dtclean$dwn == "1",])
+modelPaperNoOS <- clmm(value ~ 1+category2 +category3 + category4+ dwn+ (1|id) ,  data=dtclean[dtclean$dwn == "0",])
+
+modelThesisEngDTdwn <- clmm(value ~ 1+category2 +category3 + category4+dwn+  (1|id) ,  data=dtclean[dtclean$area == "Engineering and technology",])
+modelThesisEngDT
+modelPaperNSdwn <- clmm(value ~ 1+category2 +category3 + category4+ dwn+ (1|id) ,  data=dtclean[dtclean$area == "Natural science",])
+modelPaperSSdwn <- clmm(value ~ 1+category2 +category3 + category4+ dwn+ (1|id) ,  data=dtclean[dtclean$area == "Social science",])
+modelPaperHumdwn <- clmm(value ~ 1+category2 +category3 + category4+ dwn+ (1|id) ,  data=dtclean[dtclean$area == "Humanities",])
+
+
+```
+
+Cumulative Link Mixed Model fitted with the Laplace approximation
+
+formula: value ~ 1 + category2 + category3 + category4 + (1 | id)
+data:    dtclean[dtclean$area == "Engineering and technology", ]
+
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ id     (Intercept) 5.83     2.414   
+Number of groups:  id 160 
+
+Coefficients:
+                          category2proprietary code                        category3low data protection 
+                                             0.1299                                             -2.7007 
+                    category3medium data protection             category4government+private organzation 
+                                            -1.2179                                             -1.2728 
+                     category4government+university category4government+university+private organization 
+                                             0.2820                                             -0.7794 
+                      category4private organization                                 category4university 
+                                            -1.5741                                              0.6131 
+           category4university+private organization 
+                                            -0.8576 
+
+Thresholds:
+     1|2      2|3      3|4      4|5      5|6      6|7      7|8      8|9     9|10    10|11 
+-3.64943 -2.93354 -2.13176 -1.34551 -0.64714  0.07174  0.86433  1.68811  2.64782  3.65711  
+
+```{r}
+#confidence intervals
+confint(modelPaper) #confidence intervals 
+confint(modelPaperYesOS) #confidence intervals 
+confint(modelPaperNoOS) #confidence intervals 
+confint(modelPaperEndDTdwn) #confidence intervals 
+confint(modelPaperNSdwn) #confidence intervals 
+confint(modelPaperSSdwn) #confidence intervals 
+confint(modelPaperHumdwn) #confidence intervals 
+
+
+#post-hoc analysis
+lsmeans(modelPaper, pairwise~dwn, adjust="tukey")
+lsmeans(modelPaper, pairwise~category2, adjust="tukey")
+lsmeans(modelPaper, pairwise~category3, adjust="tukey")
+lsmeans(modelPaper, pairwise~category4, adjust="tukey")
+
+ drop1(modelPaper, test="Chisq")
+ summary(lsmeans(modelPaper,pairwise~category3,adjust="tukey",mode="linear.predictor",type="Score"))
+ drop1(modelPaper, test="Chisq")
+ summary(lsmeans(modelPaper,pairwise~category3,adjust="tukey",mode="linear.predictor",type="Score"))
+ 
+ #plotting - not used in the thesis
+ 
+ ggplot(dclean, aes(x=value)) + 
+ geom_histogram(aes(y=..count..), colour="black", fill="white")+
+ geom_density(alpha=.2, fill="#FF6666") 
+ 
+```
